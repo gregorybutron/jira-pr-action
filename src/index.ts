@@ -73,7 +73,7 @@ async function run(): Promise<void> {
       const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${ticketInBranch}`
       ticketLine = `**[${JIRA_LINK_TEXT}](${jiraLink})**\n`
 
-      if (!ticketRegex.test(prTitle)) request.title = `${ticketInBranch} - ${prTitle}`
+      if (!ticketRegex.test(prTitle)) request.title = `${ticketInBranch}: ${prTitle}`
     } else {
       const isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch)
 
