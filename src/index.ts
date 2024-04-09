@@ -80,6 +80,11 @@ async function run(): Promise<void> {
       if (!isException) {
         const regexStr = ticketRegex.toString()
         core.setFailed(`Neither current branch nor title start with a Jira ticket ${regexStr}.`)
+      } else {
+        const titleHasException = new RegExp(exceptionRegex, exceptionRegexFlags).test(prTitle);
+        if (!titleHasException) {
+            request.title = `HOTFIX: ${prTitle}`
+        }
       }
     }
     if (prPreviewLine || ticketLine) {
