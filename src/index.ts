@@ -14,12 +14,25 @@ const INPUT_PREVIEW_LINK = 'preview-link'
 const PREVIEW_LINK_TEXT = 'Preview'
 const JIRA_LINK_TEXT = 'Jira ticket'
 
-function cleanPullRequestTitle(title: string, cleanTitleRegex?: RegExp) {
-  title = title.replace(/\.$/, '')
-  title = title.replace(/^-/, '')
-  title = cleanTitleRegex ? title.replace(cleanTitleRegex, '') : title
+function cleanPullRequestTitle(title: string) {
+  /* remove leading colons, hyphens and spaces */
+  title = title.replace(/^[ \-:]+/, '')
+
+  /* remove trailing colons, hyphens,stops and spaces */
+  title = title.replace(/[ \-:\.]+$/, '')
+
+  /* Uppercase the first letter of the title */
   title = title.charAt(0).toUpperCase() + title.slice(1)
+
+  /* put a dot at the end of the title*/
+  title = `${title}.`
+
   return title
+}
+
+function buildJiraLink(ticketNumber: string, jiraAccount: string) {
+  const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${ticketNumber}`
+  return `**[${JIRA_LINK_TEXT}](${jiraLink})**\n`
 }
 
 async function run(): Promise<void> {
@@ -49,49 +62,63 @@ async function run(): Promise<void> {
       return
     }
     const github = getOctokit(token)
+
     const ticketRegex = new RegExp(ticketRegexInput, ticketRegexFlags)
+
     const cleanTitleRegex = cleanTitleRegexInput
-      ? new RegExp(cleanTitleRegexInput, cleanTitleRegexFlags)
-      : undefined
-
+    ? new RegExp(cleanTitleRegexInput, cleanTitleRegexFlags)
+    : undefined
+    
     const prNumber = context.payload.pull_request.number
-    const prTitle = cleanPullRequestTitle(
-      'test title',
-      cleanTitleRegex
-    )
-    const prBody = context.payload.pull_request.body || /* istanbul ignore next */ ''
-
     const request: Parameters<typeof github.rest.pulls.update>[0] = {
       owner: context.repo.owner,
       repo: context.repo.repo,
       pull_number: prNumber,
     }
-    const prPreviewLine = previewLink ? `**[${PREVIEW_LINK_TEXT}](${previewLink})**\n` : ''
 
+    const origPrTitle = context.payload.pull_request.title || /* istanbul ignore next */ ''
+
+    let ticketNumberUppercase = ''
     let ticketLine = ''
-    const headBranch = context.payload.pull_request.head.ref
-    const [ticketInBranch] =
-      headBranch.match(ticketRegex) || context.payload.pull_request.title.match(ticketRegex) || []
+    const [ticket] = origPrTitle.match(ticketRegex) || []
 
-    if (ticketInBranch) {
-      const ticketInBranchUpper = ticketInBranch.toUpperCase()
-      const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${ticketInBranchUpper}`
-      ticketLine = `**[${JIRA_LINK_TEXT}](${jiraLink})**\n`
+    if (ticket) {
+      ticketNumberUppercase = ticket.toUpperCase()
+      const remainingTitle = origPrTitle.replace(ticket, '').trim()
+      const cleanRemainingTitle = cleanPullRequestTitle(remainingTitle)
 
-      if (!ticketRegex.test(prTitle)) request.title = `${ticketInBranchUpper}: ${prTitle}.`
+      request.title = `${ticketNumberUppercase}: ${cleanRemainingTitle}`
+      ticketLine = buildJiraLink(ticketNumberUppercase, jiraAccount)
     } else {
-      const isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch)
+      /* we need to extract the ticket number from the branch name  if possible */
+      const prTitle = cleanPullRequestTitle(context.payload.pull_request.title || /* istanbul ignore next */ '')
 
-      if (!isException) {
-        const regexStr = ticketRegex.toString()
-        core.setFailed(`Neither current branch nor title start with a Jira ticket ${regexStr}.`)
+      const headBranch = context.payload.pull_request.head.ref
+      const [ticketInBranch] = headBranch.match(ticketRegex) || []
+
+      if (ticketInBranch) {
+        ticketNumberUppercase = ticketInBranch.toUpperCase()
+        ticketLine = buildJiraLink(ticketNumberUppercase, jiraAccount)
+        request.title = `${ticketNumberUppercase}: ${prTitle}`
       } else {
-        const titleHasException = new RegExp(exceptionRegex, exceptionRegexFlags).test(prTitle);
-        if (!titleHasException) {
-            request.title = `HOTFIX: ${prTitle}`
+        const isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch)
+  
+        if (!isException) {
+          const regexStr = ticketRegex.toString()
+          core.setFailed(`Neither current branch nor title start with a Jira ticket ${regexStr}.`)
+        } else {
+          const titleHasException = new RegExp(exceptionRegex, exceptionRegexFlags).test(prTitle);
+          if (!titleHasException) {
+              request.title = `HOTFIX: ${prTitle}`
+          }
         }
       }
     }
+
+    const prBody = context.payload.pull_request.body || /* istanbul ignore next */ ''
+
+    const prPreviewLine = previewLink ? `**[${PREVIEW_LINK_TEXT}](${previewLink})**\n` : ''
+
     if (prPreviewLine || ticketLine) {
       let hasBodyChanged = false
       const updatedBody = prBody.replace(
