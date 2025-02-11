@@ -15,7 +15,11 @@ const PREVIEW_LINK_TEXT = 'Preview'
 const JIRA_LINK_TEXT = 'Jira ticket'
 
 function cleanPullRequestTitle(title: string, cleanTitleRegex?: RegExp) {
-  return cleanTitleRegex ? title.replace(cleanTitleRegex, '') : title
+  title = title.replace(/\.$/, '')
+  title = title.replace(/^-/, '')
+  title = cleanTitleRegex ? title.replace(cleanTitleRegex, '') : title
+  title = title.charAt(0).toUpperCase() + title.slice(1)
+  return title
 }
 
 async function run(): Promise<void> {
@@ -52,7 +56,7 @@ async function run(): Promise<void> {
 
     const prNumber = context.payload.pull_request.number
     const prTitle = cleanPullRequestTitle(
-      context.payload.pull_request.title || /* istanbul ignore next */ '',
+      'test title',
       cleanTitleRegex
     )
     const prBody = context.payload.pull_request.body || /* istanbul ignore next */ ''
@@ -70,10 +74,11 @@ async function run(): Promise<void> {
       headBranch.match(ticketRegex) || context.payload.pull_request.title.match(ticketRegex) || []
 
     if (ticketInBranch) {
-      const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${ticketInBranch}`
+      const ticketInBranchUpper = ticketInBranch.toUpperCase()
+      const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${ticketInBranchUpper}`
       ticketLine = `**[${JIRA_LINK_TEXT}](${jiraLink})**\n`
 
-      if (!ticketRegex.test(prTitle)) request.title = `${ticketInBranch}: ${prTitle}`
+      if (!ticketRegex.test(prTitle)) request.title = `${ticketInBranchUpper}: ${prTitle}.`
     } else {
       const isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch)
 
@@ -94,7 +99,7 @@ async function run(): Promise<void> {
           `^(\\*\\*\\[${PREVIEW_LINK_TEXT}\\][^\\n]+\\n)?` +
             `(\\*\\*\\[${JIRA_LINK_TEXT}\\][^\\n]+\\n)?\\n?`
         ),
-        match => {
+        (        match: string) => {
           const replacement = `${prPreviewLine}${ticketLine}\n`
           hasBodyChanged = match !== replacement
           return replacement
