@@ -109,7 +109,7 @@ async function run(): Promise<void> {
         } else {
           const titleHasException = new RegExp(exceptionRegex, exceptionRegexFlags).test(prTitle);
           if (!titleHasException) {
-              request.title = `HOTFIX: ${prTitle}`
+              request.title = `Hotfix: ${prTitle}`
           }
         }
       }
