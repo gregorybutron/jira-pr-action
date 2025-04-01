@@ -191,7 +191,7 @@ describe('#pull-request', () => {
           it('updates PR title and current links in description', () => {
             expect(prUpdateSpy).toHaveBeenCalledWith({
               ...DEFAULT_REQUEST_OPTIONS,
-              title: `${ticket} - title`,
+              title: `${ticket}: Title.`,
               body:
                 `**[Preview](${preview})**\n` +
                 `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
@@ -254,7 +254,7 @@ describe('#pull-request', () => {
         it('updates PR title and description', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            title: `${ticket} - title`,
+            title: `${ticket}: Title.`,
             body:
               `**[Preview](${preview})**\n` +
               `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
@@ -281,7 +281,7 @@ describe('#pull-request', () => {
       it('tries to update PR title and description', () => {
         expect(prUpdateSpy).toHaveBeenCalledWith({
           ...DEFAULT_REQUEST_OPTIONS,
-          title: `${ticket} - title`,
+          title: `${ticket}: Title.`,
           body:
             `**[Preview](${preview})**\n` +
             `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
@@ -386,7 +386,7 @@ describe('#pull-request', () => {
         it('updates PR title and description', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            title: `${ticket} - title`,
+            title: `${ticket}: Title.`,
             body:
               `**[Preview](${preview})**\n` +
               `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
@@ -413,7 +413,7 @@ describe('#pull-request', () => {
       it('tries to update PR title and description', () => {
         expect(prUpdateSpy).toHaveBeenCalledWith({
           ...DEFAULT_REQUEST_OPTIONS,
-          title: `${ticket} - title`,
+          title: `${ticket}: Title.`,
           body:
             `**[Preview](${preview})**\n` +
             `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
@@ -539,7 +539,7 @@ describe('#pull-request', () => {
           const options = {
             branch: `${ticket}-nice-feature`,
             preview,
-            prTitle: `${ticket} - Nice feature`,
+            prTitle: `${ticket}: Nice feature.`,
           }
           ;({ setFailedSpy, errorSpy, prUpdateSpy } = await mockContext(options))
           await import('.')
@@ -578,7 +578,7 @@ describe('#pull-request', () => {
         it('updates PR description with Jira link only', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            title: `${ticket} - title`,
+            title: `${ticket}: Title.`,
             body: `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
           })
         })

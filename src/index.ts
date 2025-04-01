@@ -18,7 +18,10 @@ function cleanPullRequestTitle(title: string) {
   /* remove leading colons, hyphens and spaces */
   title = title.replace(/^[ \-:]+/, '')
 
-  /* remove trailing colons, hyphens,stops and spaces */
+  /* remove any '/' leading characters */
+  title = title.replace(/^\//, '')
+
+  /* remove trailing colons, hyphens, stops and spaces */
   title = title.replace(/[ \-:\.]+$/, '')
 
   /* Uppercase the first letter of the title */
@@ -28,6 +31,24 @@ function cleanPullRequestTitle(title: string) {
   title = `${title}.`
 
   return title
+}
+
+function getUpperCaseTicketNumber(ticket: string) {
+  if (ticket) {
+    /* remove leading colons, hyphens and spaces */
+    ticket = ticket.replace(/^[ \-:]+/, '')
+
+    /* remove trailing colons, hyphens and spaces */
+    ticket = ticket.replace(/[ \-:]+$/, '')
+
+    /* replace any spaces within the ticket number with a dash */
+    ticket = ticket.replace(/ /g, '-')
+
+    /* convert all alphabetic characters to uppercase */
+    ticket = ticket.toUpperCase()
+  }
+
+  return ticket
 }
 
 function buildJiraLink(ticketNumber: string, jiraAccount: string) {
@@ -83,21 +104,21 @@ async function run(): Promise<void> {
     const [ticket] = origPrTitle.match(ticketRegex) || []
 
     if (ticket) {
-      ticketNumberUppercase = ticket.toUpperCase()
+      ticketNumberUppercase = getUpperCaseTicketNumber(ticket)
       const remainingTitle = origPrTitle.replace(ticket, '').trim()
       const cleanRemainingTitle = cleanPullRequestTitle(remainingTitle)
 
       request.title = `${ticketNumberUppercase}: ${cleanRemainingTitle}`
       ticketLine = buildJiraLink(ticketNumberUppercase, jiraAccount)
     } else {
-      /* we need to extract the ticket number from the branch name  if possible */
+      /* we need to extract the ticket number from the branch name if possible */
       const prTitle = cleanPullRequestTitle(context.payload.pull_request.title || /* istanbul ignore next */ '')
 
       const headBranch = context.payload.pull_request.head.ref
       const [ticketInBranch] = headBranch.match(ticketRegex) || []
 
       if (ticketInBranch) {
-        ticketNumberUppercase = ticketInBranch.toUpperCase()
+        ticketNumberUppercase = getUpperCaseTicketNumber(ticketInBranch)
         ticketLine = buildJiraLink(ticketNumberUppercase, jiraAccount)
         request.title = `${ticketNumberUppercase}: ${prTitle}`
       } else {

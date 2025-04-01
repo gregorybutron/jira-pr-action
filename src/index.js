@@ -49,16 +49,39 @@ var INPUT_CLEAN_TITLE_REGEX_FLAGS = 'clean-title-regex-flags';
 var INPUT_PREVIEW_LINK = 'preview-link';
 var PREVIEW_LINK_TEXT = 'Preview';
 var JIRA_LINK_TEXT = 'Jira ticket';
-function cleanPullRequestTitle(title, cleanTitleRegex) {
-    title = title.replace(/\.$/, '');
-    title = title.replace(/^-/, '');
-    title = cleanTitleRegex ? title.replace(cleanTitleRegex, '') : title;
+function cleanPullRequestTitle(title) {
+    /* remove leading colons, hyphens and spaces */
+    title = title.replace(/^[ \-:]+/, '');
+    /* remove any '/' leading characters */
+    title = title.replace(/^\//, '');
+    /* remove trailing colons, hyphens, stops and spaces */
+    title = title.replace(/[ \-:\.]+$/, '');
+    /* Uppercase the first letter of the title */
     title = title.charAt(0).toUpperCase() + title.slice(1);
+    /* put a dot at the end of the title*/
+    title = "".concat(title, ".");
     return title;
+}
+function getUpperCaseTicketNumber(ticket) {
+    if (ticket) {
+        /* remove leading colons, hyphens and spaces */
+        ticket = ticket.replace(/^[ \-:]+/, '');
+        /* remove trailing colons, hyphens and spaces */
+        ticket = ticket.replace(/[ \-:]+$/, '');
+        /* replace any spaces within the ticket number with a dash */
+        ticket = ticket.replace(/ /g, '-');
+        /* convert all alphabetic characters to uppercase */
+        ticket = ticket.toUpperCase();
+    }
+    return ticket;
+}
+function buildJiraLink(ticketNumber, jiraAccount) {
+    var jiraLink = "https://".concat(jiraAccount, ".atlassian.net/browse/").concat(ticketNumber);
+    return "**[".concat(JIRA_LINK_TEXT, "](").concat(jiraLink, ")**\n");
 }
 function run() {
     return __awaiter(this, void 0, void 0, function () {
-        var token, jiraAccount, ticketRegexInput, ticketRegexFlags, exceptionRegex, exceptionRegexFlags, cleanTitleRegexInput, cleanTitleRegexFlags, previewLink, requiredInputs, missingRequiredInputs, plural, list, github, ticketRegex, cleanTitleRegex, prNumber, prTitle, prBody, request, prPreviewLine_1, ticketLine_1, headBranch, ticketInBranch, ticketInBranchUpper, jiraLink, isException, regexStr, titleHasException, hasBodyChanged_1, updatedBody, response, error_1, message;
+        var token, jiraAccount, ticketRegexInput, ticketRegexFlags, exceptionRegex, exceptionRegexFlags, cleanTitleRegexInput, cleanTitleRegexFlags, previewLink, requiredInputs, missingRequiredInputs, plural, list, github, ticketRegex, cleanTitleRegex, prNumber, request, origPrTitle, ticketNumberUppercase, ticketLine_1, ticket, remainingTitle, cleanRemainingTitle, prTitle, headBranch, ticketInBranch, isException, regexStr, titleHasException, prBody, prPreviewLine_1, hasBodyChanged_1, updatedBody, response, error_1, message;
         var _a;
         return __generator(this, function (_b) {
             switch (_b.label) {
@@ -98,37 +121,47 @@ function run() {
                         ? new RegExp(cleanTitleRegexInput, cleanTitleRegexFlags)
                         : undefined;
                     prNumber = github_1.context.payload.pull_request.number;
-                    prTitle = cleanPullRequestTitle(github_1.context.payload.pull_request.title || /* istanbul ignore next */ '', cleanTitleRegex);
-                    prBody = github_1.context.payload.pull_request.body || /* istanbul ignore next */ '';
                     request = {
                         owner: github_1.context.repo.owner,
                         repo: github_1.context.repo.repo,
                         pull_number: prNumber,
                     };
-                    prPreviewLine_1 = previewLink ? "**[".concat(PREVIEW_LINK_TEXT, "](").concat(previewLink, ")**\n") : '';
+                    origPrTitle = github_1.context.payload.pull_request.title || /* istanbul ignore next */ '';
+                    ticketNumberUppercase = '';
                     ticketLine_1 = '';
-                    headBranch = github_1.context.payload.pull_request.head.ref;
-                    ticketInBranch = (headBranch.match(ticketRegex) || github_1.context.payload.pull_request.title.match(ticketRegex) || [])[0];
-                    if (ticketInBranch) {
-                        ticketInBranchUpper = ticketInBranch.toUpperCase();
-                        jiraLink = "https://".concat(jiraAccount, ".atlassian.net/browse/").concat(ticketInBranchUpper);
-                        ticketLine_1 = "**[".concat(JIRA_LINK_TEXT, "](").concat(jiraLink, ")**\n");
-                        if (!ticketRegex.test(prTitle))
-                            request.title = "".concat(ticketInBranchUpper, ": ").concat(prTitle, ".");
+                    ticket = (origPrTitle.match(ticketRegex) || [])[0];
+                    if (ticket) {
+                        ticketNumberUppercase = getUpperCaseTicketNumber(ticket);
+                        remainingTitle = origPrTitle.replace(ticket, '').trim();
+                        cleanRemainingTitle = cleanPullRequestTitle(remainingTitle);
+                        request.title = "".concat(ticketNumberUppercase, ": ").concat(cleanRemainingTitle);
+                        ticketLine_1 = buildJiraLink(ticketNumberUppercase, jiraAccount);
                     }
                     else {
-                        isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch);
-                        if (!isException) {
-                            regexStr = ticketRegex.toString();
-                            core.setFailed("Neither current branch nor title start with a Jira ticket ".concat(regexStr, "."));
+                        prTitle = cleanPullRequestTitle(github_1.context.payload.pull_request.title || /* istanbul ignore next */ '');
+                        headBranch = github_1.context.payload.pull_request.head.ref;
+                        ticketInBranch = (headBranch.match(ticketRegex) || [])[0];
+                        if (ticketInBranch) {
+                            ticketNumberUppercase = getUpperCaseTicketNumber(ticketInBranch);
+                            ticketLine_1 = buildJiraLink(ticketNumberUppercase, jiraAccount);
+                            request.title = "".concat(ticketNumberUppercase, ": ").concat(prTitle);
                         }
                         else {
-                            titleHasException = new RegExp(exceptionRegex, exceptionRegexFlags).test(prTitle);
-                            if (!titleHasException) {
-                                request.title = "HOTFIX: ".concat(prTitle);
+                            isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch);
+                            if (!isException) {
+                                regexStr = ticketRegex.toString();
+                                core.setFailed("Neither current branch nor title start with a Jira ticket ".concat(regexStr, "."));
+                            }
+                            else {
+                                titleHasException = new RegExp(exceptionRegex, exceptionRegexFlags).test(prTitle);
+                                if (!titleHasException) {
+                                    request.title = "Hotfix: ".concat(prTitle);
+                                }
                             }
                         }
                     }
+                    prBody = github_1.context.payload.pull_request.body || /* istanbul ignore next */ '';
+                    prPreviewLine_1 = previewLink ? "**[".concat(PREVIEW_LINK_TEXT, "](").concat(previewLink, ")**\n") : '';
                     if (prPreviewLine_1 || ticketLine_1) {
                         hasBodyChanged_1 = false;
                         updatedBody = prBody.replace(new RegExp("^(\\*\\*\\[".concat(PREVIEW_LINK_TEXT, "\\][^\\n]+\\n)?") +
